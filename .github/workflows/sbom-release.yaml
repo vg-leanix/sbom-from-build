@@ -2,7 +2,10 @@ name: Release | Build SBOM
 
 on:
   release:
-    types: [published]
+    types: 
+      - created
+      - edited
+      - published
   workflow_dispatch:
 
 
