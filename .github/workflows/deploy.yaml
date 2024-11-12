@@ -39,7 +39,7 @@ jobs:
         poetry config virtualenvs.create false
 
     - name: Build 
-      run: cd hello-world | poetry install
+      run: poetry install
     
     - name: Generate SBOM
       uses: anchore/sbom-action@v0
