@@ -1,0 +1,31 @@
+name: Release | Build SBOM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+
+jobs:
+  build-sbom:
+    name: Build SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Tag
+        id: get_tag
+        run: echo "LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.1')" >> $GITHUB_ENV
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          artifact-name: sbom.json
+          format: cyclonedx-json
