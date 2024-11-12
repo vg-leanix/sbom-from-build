@@ -1,10 +1,11 @@
 from pydantic import BaseModel
-from datetime import datetime
+from typing import List
 
 
 class WebhookEventHeader(BaseModel):
     event_type: str
     action: str
+    installation_id: int
 
 
 class WorkflowEvent(BaseModel):
@@ -16,14 +17,19 @@ class WorkflowEvent(BaseModel):
     conclusion: str
 
 
-class Artefacts(BaseModel):
+class Artifact(BaseModel):
     id: int
     name: str
     size_in_bytes: int
     url: str
-    download_url: str
+    archive_download_url: str
 
 
 class ArtefactsResponse(BaseModel):
-    total_counts: int
-    artefacts: Artefacts
+    total_count: int
+    artifacts: List[Artifact]
+
+
+class FullWorkflowEvent(BaseModel):
+    workflow_event: WorkflowEvent
+    artifacts: ArtefactsResponse
