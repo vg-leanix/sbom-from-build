@@ -40,6 +40,24 @@ async def generate_jwt(client_id: str = CLIENT_ID,  pem_path: str = PEM_PATH):
     return encoded_jwt
 
 
+async def get_accesstoken_by_installation_id(installation_id: int):
+
+    jwt = await generate_jwt()
+
+    headers = {
+        "Authorization": f"Bearer {jwt}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    res = requests.post(url=f"{BASE_URL}/app/installations/{installation_id}/access_tokens", headers=headers)
+
+    res.raise_for_status()
+
+    js = res.json()
+
+    return js['token']
+
+
 async def validate_jwt():
 
     jwt = await generate_jwt()
@@ -57,7 +75,30 @@ async def validate_jwt():
         return False
 
 
-async def get_run_artefacts(run_id: str, owner: str, repo: str, jwt: str):
+async def download_sbom(artifacts: FullWorkflowEvent, filename: str = "sbom.json", storage_dir="temp"):
+
+    jwt = await get_accesstoken_by_installation_id(installation_id=artifacts.workflow_event.header.installation_id)
+
+    i = 0
+    for artifact in artifacts.artifacts.artifacts:
+        if artifact.name == filename:
+            headers = {
+                "Authorization": f"Bearer {jwt}",
+                "Accept": "application/vnd.github+json"
+            }
+            with requests.get(url=artifact.archive_download_url, headers=headers, stream=True) as r:
+                r.raise_for_status()
+                file_extension = r.headers.get("Content-Type", "zip")
+                filename = f"{storage_dir}/sbom-{str(i)}.{file_extension}"
+                with open(filename, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            i += 1
+
+
+async def get_run_artefacts(run_id: str, owner: str, repo: str, installation_id: int):
+
+    jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
 
     headers = {
         "Authorization": f"Bearer {jwt}",
@@ -65,9 +106,16 @@ async def get_run_artefacts(run_id: str, owner: str, repo: str, jwt: str):
     }
     res = requests.get(url=f"{BASE_URL}/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts", headers=headers)
 
-    res.raise_for_status()
+    try:
+        res.raise_for_status()
+        return ArtefactsResponse(**res.json())
 
-    return ArtefactsResponse(**res.json())
+    except requests.HTTPError:
+        err = res.text
+        headers = res.headers
+
+        print(f"Error message: {err}")
+        print(f"Headers: {headers}")
 
 
 @app.get("/")
@@ -77,19 +125,14 @@ def read_root():
 
 @app.post("/webhook")
 async def handle_webhook(request: Request):
-    # res = await validate_jwt()
-    # print("Validation: ", res)
 
-    jwt = await generate_jwt()
     headers = request.headers
-    event_type = headers.get('x-github-event')
-
     payload = await request.json()
-    action = payload.get('action', '')
 
     webhook_event = WebhookEventHeader(
-        event_type=event_type,
-        action=action
+        event_type=headers.get('x-github-event'),
+        action=payload.get('action', ''),
+        installation_id=payload.get("installation", {}).get("id", "")
     )
     print("Webhook Event:", webhook_event)
 
@@ -98,14 +141,20 @@ async def handle_webhook(request: Request):
         workflow_event = WorkflowEvent(
             header=webhook_event,
             run_id=payload.get("workflow_job", {}).get("run_id", ""),
-            owner=payload.get("workflow_job", {}).get("repository", {}).get("owner", {}).get("login", ""),
-            repo=payload.get("workflow_job", {}).get("repository", {}).get("name", ""),
+            owner=payload.get("repository", {}).get("owner", {}).get("login", ""),
+            repo=payload.get("repository", {}).get("name", ""),
             status=payload.get("workflow_job", {}).get("status", ""),
             conclusion=payload.get("workflow_job", {}).get("conclusion", "")
         )
 
-        artefacts = await get_run_artefacts(run_id=workflow_event.run_id, owner=workflow_event.owner, repo=workflow_event.repo, jwt=jwt)
+        # print(workflow_event)
 
-        print("Artefacts: ", artefacts)
+        artifacts = await get_run_artefacts(run_id=workflow_event.run_id, owner=workflow_event.owner, repo=workflow_event.repo, installation_id=webhook_event.installation_id)
+
+        ev = FullWorkflowEvent(
+            workflow_event=workflow_event,
+            artifacts=artifacts
+        )
+        d = await download_sbom(ev)
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Webhook received but no relevant action taken"})
