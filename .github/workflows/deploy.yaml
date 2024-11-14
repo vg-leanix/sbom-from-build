@@ -30,7 +30,7 @@ jobs:
           tags: sbom-build:latest
 
       - name: Generate SBOM with Syft
-        uses: anchore/syft-action@main
+        uses: anchore/sbom-action@main
         with:
           image: "sbom-build:latest"
           artifact-name: sbom.json
