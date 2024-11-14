@@ -22,7 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Copy just the pyproject.toml and poetry.lock to install dependencies,
 # leveraging Docker cache to speed up builds unless dependencies change.
-COPY .hello_world/pyproject.toml .hello_world/poetry.lock* ./
+COPY ./hello_world/pyproject.toml ./hello_world/poetry.lock* ./
 
 # Install project dependencies
 RUN poetry install --no-root --no-dev
