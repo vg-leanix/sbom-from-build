@@ -22,7 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Copy just the pyproject.toml and poetry.lock to install dependencies,
 # leveraging Docker cache to speed up builds unless dependencies change.
-COPY ./hello_world/pyproject.toml ./hello_world/poetry.lock* ./
+COPY pyproject.toml poetry.lock* ./
 
 # Install project dependencies
 RUN poetry install --no-root --no-dev
@@ -31,4 +31,4 @@ RUN poetry install --no-root --no-dev
 COPY . .
 
 # Command to run your application
-CMD ["fastapi", "dev", "hello_world/hello_world/main.py"]
+CMD ["fastapi", "dev", "hello_world/main.py"]
