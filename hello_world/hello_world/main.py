@@ -1,11 +1,13 @@
 from fastapi import FastAPI
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, BackgroundTasks
 from fastapi.responses import JSONResponse
 import requests
 from .models import *
+import uuid
 import time
 import jwt
 from dotenv import load_dotenv
+import zipfile
 import os
 load_dotenv()
 
@@ -79,21 +81,30 @@ async def download_sbom(artifacts: FullWorkflowEvent, filename: str = "sbom.json
 
     jwt = await get_accesstoken_by_installation_id(installation_id=artifacts.workflow_event.header.installation_id)
 
-    i = 0
     for artifact in artifacts.artifacts.artifacts:
         if artifact.name == filename:
             headers = {
                 "Authorization": f"Bearer {jwt}",
                 "Accept": "application/vnd.github+json"
             }
+            if not os.path.exists(storage_dir):
+                os.makedirs(storage_dir)
+
             with requests.get(url=artifact.archive_download_url, headers=headers, stream=True) as r:
                 r.raise_for_status()
+
                 file_extension = r.headers.get("Content-Type", "zip")
-                filename = f"{storage_dir}/sbom-{str(i)}.{file_extension}"
-                with open(filename, 'wb') as f:
+                filename_zip = f"{storage_dir}/sbom-{str(uuid.uuid4())}.{file_extension}"
+
+                with open(filename_zip, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
-            i += 1
+
+            temp_store = f"{storage_dir}/sbom-{str(uuid.uuid4())}"
+            with zipfile.ZipFile(filename_zip, 'r') as zip_ref:
+                zip_ref.extractall(temp_store)
+
+            os.remove(filename_zip)
 
 
 async def get_run_artefacts(run_id: str, owner: str, repo: str, installation_id: int):
@@ -118,13 +129,23 @@ async def get_run_artefacts(run_id: str, owner: str, repo: str, installation_id:
         print(f"Headers: {headers}")
 
 
+async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: str, repo: str, installation_id: int):
+    artifacts = await get_run_artefacts(run_id=run_id, owner=owner, repo=repo, installation_id=installation_id)
+
+    ev = FullWorkflowEvent(
+        workflow_event=workflow_event,
+        artifacts=artifacts
+    )
+    await download_sbom(ev)
+
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
 
 @app.post("/webhook")
-async def handle_webhook(request: Request):
+async def handle_webhook(request: Request,  background_tasks: BackgroundTasks):
 
     headers = request.headers
     payload = await request.json()
@@ -147,14 +168,7 @@ async def handle_webhook(request: Request):
             conclusion=payload.get("workflow_job", {}).get("conclusion", "")
         )
 
-        # print(workflow_event)
+        background_tasks.add_task(process_artifacts, run_id=workflow_event.run_id, repo=workflow_event.repo,
+                                  owner=workflow_event.owner, workflow_event=workflow_event, installation_id=workflow_event.header.installation_id)
 
-        artifacts = await get_run_artefacts(run_id=workflow_event.run_id, owner=workflow_event.owner, repo=workflow_event.repo, installation_id=webhook_event.installation_id)
-
-        ev = FullWorkflowEvent(
-            workflow_event=workflow_event,
-            artifacts=artifacts
-        )
-        d = await download_sbom(ev)
-
-    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Webhook received but no relevant action taken"})
+    return JSONResponse(status_code=status.HTTP_200_OK, content="")
