@@ -24,7 +24,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v2
         with:
-          context: .
+          context: ./hello_world
           file: ./hello_world/Dockerfile
           load: true # Load image into Docker runner, do not push
           tags: sbom-build:latest
