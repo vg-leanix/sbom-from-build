@@ -3,3 +3,4 @@ __pycache__
 *.pem
 temp/
 .DS_Store
+.vscode
