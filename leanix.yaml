@@ -8,3 +8,4 @@ metadata:
 
 sbom:
   name: microfrontend-sbom.json
+  type: artifact

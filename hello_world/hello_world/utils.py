@@ -7,6 +7,7 @@ import jwt
 from dotenv import load_dotenv
 import yaml
 import zipfile
+from .mtm import LeanIXClient
 import os
 import logging
 
@@ -18,6 +19,8 @@ PEM_PATH = os.getenv('PRIVATE_KEY')
 APP_ID = os.getenv('APP_ID')
 CLIENT_ID = os.getenv('CLIENT_ID')
 BASE_URL = "https://api.github.com"
+TOKEN = os.getenv("TOKEN")
+HOST = os.getenv("HOST")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -84,6 +87,8 @@ async def download_sbom(artifacts: FullWorkflowEvent, filename: str = "sbom.json
 
     jwt = await get_accesstoken_by_installation_id(installation_id=artifacts.workflow_event.header.installation_id)
 
+    stored_file_path = None
+
     for artifact in artifacts.artifacts.artifacts:
         if artifact.name == filename:
             headers = {
@@ -109,8 +114,12 @@ async def download_sbom(artifacts: FullWorkflowEvent, filename: str = "sbom.json
 
             os.remove(filename_zip)
 
+            stored_file_path = f"{temp_store}/{filename}"
+
         else:
             logging.info(f"Artifact:{artifact.name} - Target File: {filename}")
+
+    return stored_file_path
 
 
 async def get_run_artefacts(run_id: str, owner: str, repo: str, installation_id: int):
@@ -151,7 +160,7 @@ async def get_file_content(url: str, jwt: str, installation_id: int = None) -> B
     return BlobResponse(** res.json())
 
 
-async def find_sbomname_from_manifest(url: str, jwt: str):
+async def find_sbomname_from_manifest(url: str, jwt: str) -> ManifestObject:
 
     data = await get_file_content(url=url, jwt=jwt)
 
@@ -160,13 +169,15 @@ async def find_sbomname_from_manifest(url: str, jwt: str):
     data = yaml.safe_load(decoded_string)
 
     sbom_name = data.get('sbom', {}).get('name', None)
+    external_id = data.get('metadata', {}).get('externalId', None)
 
     if sbom_name:
         logging.info(f"SBOM path set in manifest. Filename: {sbom_name}")
-        return sbom_name
+
+        return ManifestObject(external_id=external_id, sbom_name=sbom_name)
 
     else:
-        raise "sbom.json"
+        return ManifestObject(external_id=external_id, sbom_name="sbom.json")
 
 
 async def process_manifest(installation_id: int, repo: str, owner: str):
@@ -189,9 +200,9 @@ async def process_manifest(installation_id: int, repo: str, owner: str):
 
         logging.info(f"Found {len(search_res.items)} matches when searching for leanix.yaml")
 
-    sbom_name = await find_sbomname_from_manifest(url=search_res.items[0].git_url, jwt=jwt)
+    manifest_obj = await find_sbomname_from_manifest(url=search_res.items[0].git_url, jwt=jwt)
 
-    return sbom_name
+    return manifest_obj
 
 
 async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: str, repo: str, installation_id: int):
@@ -201,5 +212,13 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
         workflow_event=workflow_event,
         artifacts=artifacts
     )
-    sbom_name = await process_manifest(installation_id=installation_id, repo=repo, owner=owner)
-    await download_sbom(artifacts=ev, filename=sbom_name)
+    manifest = await process_manifest(installation_id=installation_id, repo=repo, owner=owner)
+    file_path = await download_sbom(artifacts=ev, filename=manifest.sbom_name)
+    logging.info(f"SBOM stored under: {file_path}")
+
+    lx = LeanIXClient(api_token=TOKEN, fqdn=HOST)
+
+    # TODO: Send using external_id rather than factsheet_id
+    status = lx.post_sbom(file_path=file_path, factsheet_id="9766c208-7830-4f38-82ea-09308cbcf3e7")
+
+    logging.info(f"Uploaded SBOM - Status: {status}")

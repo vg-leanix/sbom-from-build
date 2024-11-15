@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class WebhookEventHeader(BaseModel):
@@ -50,3 +50,8 @@ class BlobResponse(BaseModel):
     url: str
     content: str
     encoding: str
+
+
+class ManifestObject(BaseModel):
+    external_id: Optional[str] = None
+    sbom_name: str
