@@ -12,6 +12,7 @@ requests = "^2.32.3"
 python-dotenv = "^1.0.1"
 pyjwt = "^2.9.0"
 cryptography = "^43.0.3"
+pyyaml = "^6.0.2"
 
 
 [build-system]
