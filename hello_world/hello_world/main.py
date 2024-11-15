@@ -129,6 +129,27 @@ async def get_run_artefacts(run_id: str, owner: str, repo: str, installation_id:
         print(f"Headers: {headers}")
 
 
+async def process_manifest(installation_id: int, repo: str, owner: str):
+
+    jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
+
+    headers = {
+        "Authorization": f"Bearer {jwt}",
+        "Accept": "application/vnd.github+json"
+    }
+    url = f"{BASE_URL}/search/code?q=filename:leanix.yaml+repo:{owner}/{repo}"
+
+    res = requests.get(url=url, headers=headers)
+    res.raise_for_status()
+
+    search_res = SearchResponse(**res.json())
+
+    if len(search_res.items) > 0:
+        search_res.items = [search_res.items[0]]
+
+    print(search_res)
+
+
 async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: str, repo: str, installation_id: int):
     artifacts = await get_run_artefacts(run_id=run_id, owner=owner, repo=repo, installation_id=installation_id)
 
@@ -170,5 +191,8 @@ async def handle_webhook(request: Request,  background_tasks: BackgroundTasks):
 
         background_tasks.add_task(process_artifacts, run_id=workflow_event.run_id, repo=workflow_event.repo,
                                   owner=workflow_event.owner, workflow_event=workflow_event, installation_id=workflow_event.header.installation_id)
+
+        background_tasks.add_task(process_manifest, repo=workflow_event.repo,
+                                  owner=workflow_event.owner, installation_id=workflow_event.header.installation_id)
 
     return JSONResponse(status_code=status.HTTP_200_OK, content="")

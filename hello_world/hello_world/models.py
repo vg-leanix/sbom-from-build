@@ -33,3 +33,14 @@ class ArtefactsResponse(BaseModel):
 class FullWorkflowEvent(BaseModel):
     workflow_event: WorkflowEvent
     artifacts: ArtefactsResponse
+
+
+class SearchItem(BaseModel):
+    name: str
+    path: str
+    git_url: str
+
+
+class SearchResponse(BaseModel):
+    incomplete_results: bool
+    items: List[SearchItem]
