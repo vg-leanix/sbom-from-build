@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from enum import Enum
 
 
 class WebhookEventHeader(BaseModel):
@@ -52,6 +53,14 @@ class BlobResponse(BaseModel):
     encoding: str
 
 
+class HTTPAction(Enum):
+    POST = 'POST'
+    GET = 'GET'
+
+
 class ManifestObject(BaseModel):
     external_id: Optional[str] = None
-    sbom_name: str
+    sbom_name: Optional[str] = None
+    sbom_type: Optional[str] = None
+    sbom_ingestion_url: Optional[str] = None
+    http_action: Optional[HTTPAction] = None

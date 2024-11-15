@@ -170,14 +170,17 @@ async def find_sbomname_from_manifest(url: str, jwt: str) -> ManifestObject:
 
     sbom_name = data.get('sbom', {}).get('name', None)
     external_id = data.get('metadata', {}).get('externalId', None)
+    sbom_ingestion_type = data.get('sbom', {}).get('type', None)
+    sbom_ingestion_url = data.get('sbom', {}).get('url', None)
+    sbom_http_action = data.get('sbom', {}).get('http_action', None)
 
     if sbom_name:
         logging.info(f"SBOM path set in manifest. Filename: {sbom_name}")
 
-        return ManifestObject(external_id=external_id, sbom_name=sbom_name)
+        return ManifestObject(external_id=external_id, sbom_name=sbom_name, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action)
 
     else:
-        return ManifestObject(external_id=external_id, sbom_name="sbom.json")
+        return ManifestObject(external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
 
 
 async def process_manifest(installation_id: int, repo: str, owner: str):
@@ -213,8 +216,21 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
         artifacts=artifacts
     )
     manifest = await process_manifest(installation_id=installation_id, repo=repo, owner=owner)
-    file_path = await download_sbom(artifacts=ev, filename=manifest.sbom_name)
-    logging.info(f"SBOM stored under: {file_path}")
+
+    if manifest.sbom_type == "artifact":
+        file_path = await download_sbom(artifacts=ev, filename=manifest.sbom_name)
+        logging.info(f"SBOM stored under: {file_path}")
+
+    elif manifest.sbom_type == "api":
+        # decide if GET Or POST
+        if manifest.http_action == "POST":
+            res = requests.post(url=manifest.sbom_ingestion_url, headers={"Authorization": f"Bearer {jwt}"})
+            res.raise_for_status()
+            logging.info(f"{res.json()}")
+        elif manifest.http_action == "GET":
+            res = requests.get(url=manifest.sbom_ingestion_url, headers={"Authorization": f"Bearer {jwt}"})
+            res.raise_for_status()
+            logging.info(f"{res.json()}")
 
     lx = LeanIXClient(api_token=TOKEN, fqdn=HOST)
 

@@ -8,4 +8,6 @@ metadata:
 
 sbom:
   name: microfrontend-sbom.json
-  type: artifact
+  type: api
+  http_action: GET
+  url: https://api.github.comrepos/vg-leanix/sbom-from-build/dependency-graph/sbom
