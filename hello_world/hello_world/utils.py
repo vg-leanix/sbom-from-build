@@ -223,11 +223,12 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
 
     elif manifest.sbom_type == "api":
         # decide if GET Or POST
-        if manifest.http_action == "POST":
+        jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
+        if manifest.http_action == HTTPAction.POST:
             res = requests.post(url=manifest.sbom_ingestion_url, headers={"Authorization": f"Bearer {jwt}"})
             res.raise_for_status()
             logging.info(f"{res.json()}")
-        elif manifest.http_action == "GET":
+        elif manifest.http_action == HTTPAction.GET:
             res = requests.get(url=manifest.sbom_ingestion_url, headers={"Authorization": f"Bearer {jwt}"})
             res.raise_for_status()
             logging.info(f"{res.json()}")
