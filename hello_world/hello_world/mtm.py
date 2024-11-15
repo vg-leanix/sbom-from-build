@@ -1,7 +1,5 @@
 import requests
 from dotenv import load_dotenv
-import base64
-import logging
 load_dotenv()
 
 

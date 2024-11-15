@@ -30,7 +30,7 @@ async def handle_webhook(request: Request,  background_tasks: BackgroundTasks):
     logging.info(f"Webhook Event: {webhook_event}")
 
     if webhook_event.event_type == "workflow_job" and webhook_event.action == "completed":
-        logging.info(f"Anaylsing finished workflow job for artifacts...")
+        logging.info(f"Analysing finished workflow job for artifacts...")
 
         workflow_event = WorkflowEvent(
             header=webhook_event,
