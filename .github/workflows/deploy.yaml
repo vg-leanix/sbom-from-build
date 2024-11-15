@@ -33,7 +33,7 @@ jobs:
         uses: anchore/sbom-action@main
         with:
           image: "sbom-build:latest"
-          artifact-name: sbom.json
+          artifact-name: microfrontend-sbom.json
           format: cyclonedx-json
 
       #     format: "spdx-json" # Specify the format of the SBOM (e.g., spdx-json, cyclonedx, etc.)

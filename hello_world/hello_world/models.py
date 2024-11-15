@@ -44,3 +44,9 @@ class SearchItem(BaseModel):
 class SearchResponse(BaseModel):
     incomplete_results: bool
     items: List[SearchItem]
+
+
+class BlobResponse(BaseModel):
+    url: str
+    content: str
+    encoding: str
