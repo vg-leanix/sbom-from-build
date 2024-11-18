@@ -169,16 +169,17 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     decoded_string = decoded_bytes.decode('utf-8')
     data = yaml.safe_load(decoded_string)
 
-    sbom_name = data.get('sbom', {}).get('name', None)
+    sbom_config = data.get('sbom', {}).get('name', None)
     external_id = data.get('metadata', {}).get('externalId', None)
     sbom_ingestion_type = data.get('sbom', {}).get('type', None)
     sbom_ingestion_url = data.get('sbom', {}).get('url', None)
     sbom_http_action = data.get('sbom', {}).get('http_action', None)
+    jq = data.get('sbom', {}).get('jq', None)
 
-    if sbom_name:
-        logging.info(f"SBOM path set in manifest. Filename: {sbom_name}")
+    if sbom_config:
+        logging.info(f"SBOM path set in manifest. Filename: {sbom_config}")
 
-        return ManifestObject(external_id=external_id, sbom_name=sbom_name, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action)
+        return ManifestObject(external_id=external_id, sbom_name=sbom_config, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action, jq=jq)
 
     else:
         return ManifestObject(external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
@@ -213,7 +214,7 @@ async def search_for_manifest(installation_id: int, repo: str, owner: str):
 
 async def get_attribute(obj, path):
     try:
-        attrs = path.split('.')  # Split the 'path' by dots to access nested attributes
+        attrs = path.split('.')
         for attr in attrs:  # Traverse through each attribute in the path
             if isinstance(obj, dict):  # If it's a dictionary
                 obj = obj[attr]  # Access the dictionary by key
@@ -228,7 +229,7 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
     # decide if GET Or POST
 
     if http_action == HTTPAction.POST:
-        logging.info(f"Manifest requires external source. {http_action.value} to {url}")
+        logging.info(f"Manifest requires external source. {http_action.value} to {url} by looking for: {jq}")
         headers = {
             "Authorization": f"Bearer {bearer}",
             "Accept": "application/vnd.github+json"
@@ -288,7 +289,7 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
     elif manifest.sbom_type == "api":
 
         jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
-        file_path = await fetch_sbom_from_external_source(http_action=manifest.http_action, bearer=jwt, url=manifest.sbom_ingestion_url)
+        file_path = await fetch_sbom_from_external_source(http_action=manifest.http_action, bearer=jwt, url=manifest.sbom_ingestion_url, jq=manifest.jq)
 
     lx = LeanIXClient(api_token=TOKEN, fqdn=HOST)
 
