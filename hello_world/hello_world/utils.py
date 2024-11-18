@@ -172,7 +172,8 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     logging.info(f"Manifest: {json.dumps(data, indent=2)} \n")
 
     service_name = data.get('metadata', {}).get('name')
-    sbom_config = data.get('sbom', {}).get('name', None)
+    sbom_config = data.get('sbom', {})
+    sbom_name = data.get('sbom', {}).get("name", None)
     external_id = data.get('metadata', {}).get('externalId', None)
     sbom_ingestion_type = data.get('sbom', {}).get('type', None)
     sbom_ingestion_url = data.get('sbom', {}).get('url', None)
@@ -182,7 +183,7 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     if sbom_config:
         logging.info(f"SBOM path set in manifest. Filename: {sbom_config}")
 
-        return ManifestObject(service_name=service_name, external_id=external_id, sbom_name=sbom_config, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action, jq=jq)
+        return ManifestObject(service_name=service_name, external_id=external_id, sbom_name=sbom_name, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action, jq=jq)
 
     else:
         return ManifestObject(service_name=service_name, external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
