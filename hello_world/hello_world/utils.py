@@ -178,7 +178,7 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     if sbom_name:
         logging.info(f"SBOM path set in manifest. Filename: {sbom_name}")
 
-        return ManifestObject(external_id=external_id, sbom_name=sbom_name, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=HTTPAction[sbom_http_action])
+        return ManifestObject(external_id=external_id, sbom_name=sbom_name, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action)
 
     else:
         return ManifestObject(external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
@@ -187,6 +187,7 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
 async def search_for_manifest(installation_id: int, repo: str, owner: str):
 
     jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
+    print(jwt)
 
     headers = {
         "Authorization": f"Bearer {jwt}",
@@ -214,7 +215,11 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
 
     if http_action == HTTPAction.POST:
         logging.info(f"Manifest requires external source. {http_action.value} to {url}")
-        res = requests.post(url=url, headers={"Authorization": f"Bearer {bearer}"})
+        headers = {
+            "Authorization": f"Bearer {bearer}",
+            "Accept": "application/vnd.github+json"
+        }
+        res = requests.post(url=url, headers=headers)
         res.raise_for_status()
 
         core_dir = "temp"
@@ -227,7 +232,11 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
 
     elif http_action == HTTPAction.GET:
         logging.info(f"Manifest requires external source. {http_action.value} to {url}")
-        res = requests.get(url=url, headers={"Authorization": f"Bearer {bearer}"})
+        headers = {
+            "Authorization": f"Bearer {bearer}",
+            "Accept": "application/vnd.github+json"
+        }
+        res = requests.get(url=url, headers=headers)
         res.raise_for_status()
 
         core_dir = "temp"
@@ -249,6 +258,7 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
         artifacts=artifacts
     )
     manifest = await search_for_manifest(installation_id=installation_id, repo=repo, owner=owner)
+    logging.info(manifest)
 
     if manifest.sbom_type == "artifact":
         file_path = await download_sbom(artifacts=ev, filename=manifest.sbom_name)
