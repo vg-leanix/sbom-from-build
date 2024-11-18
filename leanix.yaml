@@ -10,7 +10,7 @@ sbom:
   name: microfrontend-sbom.json
   type: api
   http_action: GET
-  url: https://api.github.comrepos/vg-leanix/sbom-from-build/dependency-graph/sbom
+  url: https://api.github.com/repos/vg-leanix/sbom-from-build/dependency-graph/sbom
 # SBOM as Artifact
 # sbom:
 #   name: microfrontend-sbom.json
