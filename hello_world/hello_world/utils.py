@@ -8,7 +8,7 @@ import jwt
 from dotenv import load_dotenv
 import yaml
 import zipfile
-from .mtm import LeanIXClient
+from .leanix import LeanIXClient
 import os
 import logging
 
@@ -169,6 +169,9 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     decoded_string = decoded_bytes.decode('utf-8')
     data = yaml.safe_load(decoded_string)
 
+    logging.info(f"Manifest: {json.dumps(data, indent=2)} \n")
+
+    service_name = data.get('metadata', {}).get('name')
     sbom_config = data.get('sbom', {}).get('name', None)
     external_id = data.get('metadata', {}).get('externalId', None)
     sbom_ingestion_type = data.get('sbom', {}).get('type', None)
@@ -179,13 +182,13 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
     if sbom_config:
         logging.info(f"SBOM path set in manifest. Filename: {sbom_config}")
 
-        return ManifestObject(external_id=external_id, sbom_name=sbom_config, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action, jq=jq)
+        return ManifestObject(service_name=service_name, external_id=external_id, sbom_name=sbom_config, sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url, http_action=sbom_http_action, jq=jq)
 
     else:
-        return ManifestObject(external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
+        return ManifestObject(service_name=service_name, external_id=external_id, sbom_name="sbom.json", sbom_type=sbom_ingestion_type, sbom_ingestion_url=sbom_ingestion_url)
 
 
-async def search_for_manifest(installation_id: int, repo: str, owner: str):
+async def search_for_manifest(installation_id: int, repo: str, owner: str) -> ManifestObject:
 
     jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
 
@@ -280,7 +283,6 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
         artifacts=artifacts
     )
     manifest = await search_for_manifest(installation_id=installation_id, repo=repo, owner=owner)
-    logging.info(manifest)
 
     if manifest.sbom_type == "artifact":
         file_path = await download_sbom(artifacts=ev, filename=manifest.sbom_name)
@@ -293,7 +295,11 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
 
     lx = LeanIXClient(api_token=TOKEN, fqdn=HOST)
 
-    # TODO: Send using external_id rather than factsheet_id
-    status = lx.post_sbom(file_path=file_path, factsheet_id="9766c208-7830-4f38-82ea-09308cbcf3e7")
+    found_fs = lx.search_for_microservice(search_term=manifest.service_name)
+    if found_fs.is_matched:
+        logging.info(f"Matched and found this existing FS:{json.dumps(found_fs.model_dump(), indent=2)}")
+        found_fs_id = found_fs.objectId
+        status = lx.post_sbom(file_path=file_path, factsheet_id=found_fs_id)
+        logging.info(f"Uploaded SBOM - Status: {status}")
 
-    logging.info(f"Uploaded SBOM - Status: {status}")
+    logging.warning(f"No SBOM uploaded as no matching microservice FS could be found for {manifest.service_name}")

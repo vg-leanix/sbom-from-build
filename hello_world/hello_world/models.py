@@ -59,9 +59,32 @@ class HTTPAction(Enum):
 
 
 class ManifestObject(BaseModel):
+    service_name: str
     external_id: Optional[str] = None
     sbom_name: Optional[str] = None
     sbom_type: Optional[str] = None
     sbom_ingestion_url: Optional[str] = None
     http_action: Optional[HTTPAction] = None
     jq: Optional[str] = None
+
+
+class Suggestion(BaseModel):
+    objectId: str
+    displayName: str
+    type: str
+    category: str
+
+
+class Data(BaseModel):
+    type: str
+    suggestions: List[Suggestion]
+
+
+class SearchResult(BaseModel):
+    status: str
+    data: List[Data]
+
+
+class Match(BaseModel):
+    is_matched: bool
+    match: Optional[Suggestion]
