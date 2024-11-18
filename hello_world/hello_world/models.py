@@ -64,3 +64,4 @@ class ManifestObject(BaseModel):
     sbom_type: Optional[str] = None
     sbom_ingestion_url: Optional[str] = None
     http_action: Optional[HTTPAction] = None
+    jq: Optional[str] = None
