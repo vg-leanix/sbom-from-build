@@ -187,7 +187,6 @@ async def process_manifest(url: str, jwt: str) -> ManifestObject:
 async def search_for_manifest(installation_id: int, repo: str, owner: str):
 
     jwt = await get_accesstoken_by_installation_id(installation_id=installation_id)
-    print(jwt)
 
     headers = {
         "Authorization": f"Bearer {jwt}",
@@ -207,10 +206,25 @@ async def search_for_manifest(installation_id: int, repo: str, owner: str):
 
     manifest_obj = await process_manifest(url=search_res.items[0].git_url, jwt=jwt)
 
+    logging.info(search_res)
+
     return manifest_obj
 
 
-async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, url: str) -> str:
+async def get_attribute(obj, path):
+    try:
+        attrs = path.split('.')  # Split the 'path' by dots to access nested attributes
+        for attr in attrs:  # Traverse through each attribute in the path
+            if isinstance(obj, dict):  # If it's a dictionary
+                obj = obj[attr]  # Access the dictionary by key
+            else:
+                obj = getattr(obj, attr)  # Use getattr to access object's attribute
+            return obj
+    except (AttributeError, KeyError) as e:
+        raise AttributeError(f"Attribute path '{path}' not found") from e
+
+
+async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, url: str, jq: str = "sbom") -> str:
     # decide if GET Or POST
 
     if http_action == HTTPAction.POST:
@@ -225,8 +239,12 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
         core_dir = "temp"
         filename = f"{core_dir}/sbom-{str(uuid.uuid4())}.json"
 
+        res_js = res.json()
+
+        sbom = await get_attribute(res_js, jq)
+
         with open(filename, "w") as fs:
-            json.dump(res.json(), fs, indent=2)
+            json.dump(sbom, fs, indent=2)
 
         logging.info(f"Stored SBOM under {filename}")
 
@@ -238,12 +256,15 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
         }
         res = requests.get(url=url, headers=headers)
         res.raise_for_status()
+        res_js = res.json()
 
         core_dir = "temp"
         filename = f"{core_dir}/sbom-{str(uuid.uuid4())}.json"
 
+        sbom = await get_attribute(res_js, jq)
+
         with open(filename, "w") as fs:
-            json.dump(res.json(), fs, indent=2)
+            json.dump(sbom, fs, indent=2)
 
         logging.info(f"Stored SBOM under {filename}")
 
