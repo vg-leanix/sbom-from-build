@@ -253,7 +253,7 @@ async def fetch_sbom_from_external_source(http_action: HTTPAction, bearer: str, 
         logging.info(f"Stored SBOM under {filename}")
 
     elif http_action == HTTPAction.GET:
-        logging.info(f"Manifest requires external source. {http_action.value} to {url}")
+        logging.info(f"Manifest requires external source. {http_action.value} to {url} by looking for: {jq}")
         headers = {
             "Authorization": f"Bearer {bearer}",
             "Accept": "application/vnd.github+json"
@@ -298,8 +298,8 @@ async def process_artifacts(workflow_event: WorkflowEvent, run_id: str, owner: s
     found_fs = lx.search_for_microservice(search_term=manifest.service_name)
     if found_fs.is_matched:
         logging.info(f"Matched and found this existing FS:{json.dumps(found_fs.model_dump(), indent=2)}")
-        found_fs_id = found_fs.objectId
+        found_fs_id = found_fs.match.objectId
         status = lx.post_sbom(file_path=file_path, factsheet_id=found_fs_id)
         logging.info(f"Uploaded SBOM - Status: {status}")
-
-    logging.warning(f"No SBOM uploaded as no matching microservice FS could be found for {manifest.service_name}")
+    else:
+        logging.warning(f"No SBOM uploaded as no matching microservice FS could be found for {manifest.service_name}")

@@ -87,4 +87,4 @@ class SearchResult(BaseModel):
 
 class Match(BaseModel):
     is_matched: bool
-    match: Optional[Suggestion]
+    match: Optional[Suggestion] = None

@@ -37,7 +37,7 @@ class LeanIXClient:
         for i in js.data:
             for d in i.suggestions:
                 if d.type == fs_type and d.category == category:
-                    filtered_result_list = Match(is_matched=False, match=d)
+                    filtered_result_list = Match(is_matched=True, match=d)
 
         return filtered_result_list
 
