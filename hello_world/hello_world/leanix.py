@@ -1,4 +1,5 @@
 import requests
+from .models import *
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -19,6 +20,26 @@ class LeanIXClient:
         response_payload = response.json()
         access_token = response_payload["access_token"]
         return access_token
+
+    def search_for_microservice(self, search_term: str, fs_type: str = "Application", category: str = "microservice") -> Match:
+        url = f"https://{self.fqdn}.leanix.net/services/pathfinder/v1/suggestions?q={search_term}&count=1&perType=true"
+        headers = {
+            "Authorization": f"Bearer {self.bearer}"
+        }
+        res = requests.get(url=url, headers=headers)
+
+        res.raise_for_status()
+
+        js = SearchResult(**res.json())
+
+        filtered_result_list = Match(is_matched=False)
+
+        for i in js.data:
+            for d in i.suggestions:
+                if d.type == fs_type and d.category == category:
+                    filtered_result_list = Match(is_matched=False, match=d)
+
+        return filtered_result_list
 
     def post_sbom(self, file_path: str, factsheet_id: str):
 
