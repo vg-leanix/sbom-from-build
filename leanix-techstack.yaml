@@ -1,0 +1,13 @@
+version: 1
+mappings:
+  - targetFactsheet:
+      name: Angular
+      factsheetId: 2131239dasbd2
+
+      mappingrules:
+        - purl: pkg:npm/angular-core*
+
+  - targetFactsheet: React
+    mappingrules:
+      - purl: pkg:npm/react*
+      - purl: pkg:npm/react-utils*
